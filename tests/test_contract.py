@@ -1,9 +1,11 @@
 """Guard rails on the ingest contract and the trained model's behaviour."""
+import hashlib
+
 import pandas as pd
 import pytest
 from sklearn.metrics import r2_score
 
-from src.config import LAG_WARMUP, TARGET
+from src.config import LAG_WARMUP, RAW, RAW_SHA256, TARGET
 from src.features import build_features, feature_columns, reindex_to_calendar
 from src.ingest import load_raw
 from src.train import MODELS, temporal_split
@@ -56,3 +58,11 @@ def test_persistence_baseline_is_reported():
     """The baseline that matters for a lag-driven model is 'yesterday again'.
     It must be in the comparison, whatever its score."""
     assert "baseline_persistence" in MODELS
+
+
+def test_raw_data_is_unmodified():
+    """data/raw/ is immutable. The permission deny rules bind only the Edit
+    tool, and the PostToolUse hook only fires on Edit/Write, so a Bash `cp`
+    into data/raw/ passes both. Hashing the file catches any route."""
+    digest = hashlib.sha256(RAW.read_bytes()).hexdigest()
+    assert digest == RAW_SHA256, f"{RAW.name} was modified: sha256 {digest[:16]}..."

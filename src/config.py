@@ -53,3 +53,8 @@ VALID_END = "2012-06-30"
 # have no complete history and are dropped; tests/test_contract.py uses this
 # to bound how many rows may legitimately disappear.
 LAG_WARMUP = 14
+
+# sha256 of data/raw/bike_daily.csv as shipped. data/raw/ is immutable:
+# the deny rules only stop the agent's Edit tool, so a Bash `cp` can still
+# overwrite it. tests/test_contract.py checks this on every `make test`.
+RAW_SHA256 = "a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc"

@@ -212,3 +212,94 @@ FAILED tests/test_leakage.py::test_weather_encoder_rejects_unknown_labels - F...
 
 ### Turns to fix
 2 (my messages to a /clear-ed session, given only "make test is failing"). Turn 1: correct diagnosis, no edit. Turn 2: "apply it now". Its fix dropped sorted() from the error message, which still passes the test (it matches only the prefix) but makes the message order nondeterministic for multiple unknown labels; I restored the original line. This fault was only fixable once my new test existed: under the starter suite there was nothing failing to fix.
+
+## Fault 4: Bash `cp` into data/raw/ (invisible to the hook)
+
+I asked the agent to run `cp ~/ma7-notes/bike_daily_tampered.csv data/raw/bike_daily.csv` with the Bash tool. The tampered file differs in one row: 2012-07-04 (a test-set day) has temp 0 instead of 29.090849.
+
+### What happened
+- The deny rule `Edit(./data/raw/**)` did not block it: it binds the Edit tool, not shell commands. The only gate was my approval click, because `cp` is not on the allow list. In accept-edits mode it would have run unprompted.
+- The PostToolUse hook did not fire: its matcher is `Edit|Write`, and `cp` is a Bash call.
+- sha256 changed from a6bed1577f6e4de5... to 61836817fa0b863a...; `git diff --stat` showed 1 line changed.
+- The full suite stayed green:
+```
+python -m pytest tests/ -q
+.................                                                        [100%]
+17 passed in 1.14s
+```
+
+### What would catch it
+1. **A hash check on the raw file** (implemented below). Catches any route (cp, an editor, a changed download), but only when `make test` runs.
+2. **A Stop hook** that runs `make test` and exits 2 on failure. Combined with (1), the agent could not end a turn after tampering.
+3. **A PreToolUse hook on Bash** that rejects commands mentioning `data/raw/`. Prevents the write rather than detecting it, but an indirect path (a variable, `cd data/raw && cp ...`) can slip past a text match.
+4. **`chmod -w data/raw/`**: a filesystem guarantee no tool call bypasses without an explicit chmod first.
+
+### Implemented: test_raw_data_is_unmodified
+```diff
+diff --git a/src/config.py b/src/config.py
+index 3a53c3b..5b657bb 100644
+--- a/src/config.py
++++ b/src/config.py
+@@ -53,3 +53,8 @@ VALID_END = "2012-06-30"
+ # have no complete history and are dropped; tests/test_contract.py uses this
+ # to bound how many rows may legitimately disappear.
+ LAG_WARMUP = 14
++
++# sha256 of data/raw/bike_daily.csv as shipped. data/raw/ is immutable:
++# the deny rules only stop the agent's Edit tool, so a Bash `cp` can still
++# overwrite it. tests/test_contract.py checks this on every `make test`.
++RAW_SHA256 = "a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc"
+diff --git a/tests/test_contract.py b/tests/test_contract.py
+index 4f7a1b8..c2f7e18 100644
+--- a/tests/test_contract.py
++++ b/tests/test_contract.py
+@@ -1,9 +1,11 @@
+ """Guard rails on the ingest contract and the trained model's behaviour."""
++import hashlib
++
+ import pandas as pd
+ import pytest
+ from sklearn.metrics import r2_score
+ 
+-from src.config import LAG_WARMUP, TARGET
++from src.config import LAG_WARMUP, RAW, RAW_SHA256, TARGET
+ from src.features import build_features, feature_columns, reindex_to_calendar
+ from src.ingest import load_raw
+ from src.train import MODELS, temporal_split
+@@ -56,3 +58,11 @@ def test_persistence_baseline_is_reported():
+     """The baseline that matters for a lag-driven model is 'yesterday again'.
+     It must be in the comparison, whatever its score."""
+     assert "baseline_persistence" in MODELS
++
++
++def test_raw_data_is_unmodified():
++    """data/raw/ is immutable. The permission deny rules bind only the Edit
++    tool, and the PostToolUse hook only fires on Edit/Write, so a Bash `cp`
++    into data/raw/ passes both. Hashing the file catches any route."""
++    digest = hashlib.sha256(RAW.read_bytes()).hexdigest()
++    assert digest == RAW_SHA256, f"{RAW.name} was modified: sha256 {digest[:16]}..."
+```
+
+Run against the tampered file:
+```
+....F                                                                    [100%]
+=================================== FAILURES ===================================
+_________________________ test_raw_data_is_unmodified __________________________
+
+    def test_raw_data_is_unmodified():
+        """data/raw/ is immutable. The permission deny rules bind only the Edit
+        tool, and the PostToolUse hook only fires on Edit/Write, so a Bash `cp`
+        into data/raw/ passes both. Hashing the file catches any route."""
+        digest = hashlib.sha256(RAW.read_bytes()).hexdigest()
+>       assert digest == RAW_SHA256, f"{RAW.name} was modified: sha256 {digest[:16]}..."
+E       AssertionError: bike_daily.csv was modified: sha256 61836817fa0b863a...
+E       assert '61836817fa0b...6259f852c9574' == 'a6bed1577f6e...0c86a0b5ad9dc'
+E         
+E         - a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc
+E         + 61836817fa0b863ae5a3200e9ed76b38358495b115b90eedc636259f852c9574
+
+tests/test_contract.py:68: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_contract.py::test_raw_data_is_unmodified - AssertionError: ...
+1 failed, 4 passed in 1.19s
+```
