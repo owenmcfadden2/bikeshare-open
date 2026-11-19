@@ -14,7 +14,7 @@ allowed-tools: Read, Edit, Bash(make test*), Bash(python -m pytest*), Bash(git d
    Use the Edit tool, never Bash, so the PostToolUse hook runs. Do not
    touch tests/ or data/.
 3. **Show the evidence verbatim:** the output of `git diff src/`; the
-   hook's stderr exactly as received, or the sentence "The hook did not
+   hook's stderr exactly as received, every line, not just the summary, or the sentence "The hook did not
    fire."; then the full output of `make test`. Never summarize output.
 4. **Append a section to docs/SEEDED_FAULTS.md** headed with the fault
    description, containing those three outputs pasted, not described.
