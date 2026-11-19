@@ -1,0 +1,47 @@
+{
+  "target": "cnt / cnt_roll_7",
+  "splits": [
+    "valid",
+    "test"
+  ],
+  "ratio_range": {
+    "train": [
+      0.158,
+      1.878
+    ],
+    "valid": [
+      0.16,
+      1.692
+    ]
+  },
+  "baseline_roll7": {
+    "valid": {
+      "r2": 0.5945,
+      "mae": 823.9
+    },
+    "test": {
+      "r2": 0.4796,
+      "mae": 871.6
+    }
+  },
+  "ridge_ratio": {
+    "valid": {
+      "r2": 0.3906,
+      "mae": 1088.1
+    },
+    "test": {
+      "r2": 0.0156,
+      "mae": 1501.5
+    }
+  },
+  "hgb_ratio": {
+    "valid": {
+      "r2": 0.7409,
+      "mae": 691.8
+    },
+    "test": {
+      "r2": 0.6552,
+      "mae": 783.6
+    }
+  }
+}
