@@ -11,7 +11,7 @@ allowed-tools: Read, Edit, Bash(make test*), Bash(python -m pytest*), Bash(git d
 1. **Precondition.** The status above must be empty. If it lists any
    file, stop and say so. Run `make test`; if anything fails, stop.
 2. **Make exactly one change** in src/ that implements the fault above.
-   Use the Edit tool, never Bash, so the PostToolUse hook runs. Do not
+   Use the Edit tool, never Bash, so the PostToolUse hook runs. Change the existing line in place; never add a new line that overrides it, and add no comment that marks or explains the fault. Do not
    touch tests/ or data/.
 3. **Show the evidence verbatim:** the output of `git diff src/`; the
    hook's stderr exactly as received, every line, not just the summary, or the sentence "The hook did not
