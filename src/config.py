@@ -58,3 +58,17 @@ LAG_WARMUP = 14
 # the deny rules only stop the agent's Edit tool, so a Bash `cp` can still
 # overwrite it. tests/test_contract.py checks this on every `make test`.
 RAW_SHA256 = "a6bed1577f6e4de56dcfae6d8315985073cc0ad3446c8c99ed60c86a0b5ad9dc"
+
+# --- Every raw column is classified exactly once -------------------------
+# feature_columns() is a denylist, so a new numeric column in the raw CSV
+# would reach the model silently. tests/test_contract.py fails if the CSV
+# has any column that is in none of these sets (or in FORBIDDEN).
+INDEX_COL = "dteday"
+# Numeric weather readings, used directly as features.
+RAW_FEATURE_COLS = {"temp", "atemp", "hum", "windspeed"}
+# Labels that src/features.py encodes into features
+# (is_holiday, is_workday, weather_severity).
+RAW_SOURCE_COLS = {"holiday", "workday", "weather"}
+# String calendar labels superseded by features derived from dteday
+# (month_sin/month_cos, dayofweek). Excluded on purpose.
+RAW_SUPERSEDED_COLS = {"season", "mnth", "weekday"}

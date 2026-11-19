@@ -5,7 +5,10 @@ import pandas as pd
 import pytest
 from sklearn.metrics import r2_score
 
-from src.config import LAG_WARMUP, RAW, RAW_SHA256, TARGET
+from src.config import (
+    FORBIDDEN, INDEX_COL, LAG_WARMUP, RAW, RAW_FEATURE_COLS, RAW_SHA256,
+    RAW_SOURCE_COLS, RAW_SUPERSEDED_COLS, TARGET,
+)
 from src.features import build_features, feature_columns, reindex_to_calendar
 from src.ingest import load_raw
 from src.train import MODELS, temporal_split
@@ -66,3 +69,16 @@ def test_raw_data_is_unmodified():
     into data/raw/ passes both. Hashing the file catches any route."""
     digest = hashlib.sha256(RAW.read_bytes()).hexdigest()
     assert digest == RAW_SHA256, f"{RAW.name} was modified: sha256 {digest[:16]}..."
+
+
+def test_every_raw_column_is_classified(raw):
+    """A new column in the raw CSV must not enter the model silently.
+    feature_columns() would pass any new numeric column straight through,
+    and every leakage test would stay green. So every raw column must be
+    named in exactly one set in src/config.py."""
+    groups = [FORBIDDEN, RAW_FEATURE_COLS, RAW_SOURCE_COLS,
+              RAW_SUPERSEDED_COLS, {INDEX_COL}]
+    classified = set().union(*groups)
+    assert sum(len(g) for g in groups) == len(classified), "a column is in two classes"
+    unclassified = set(raw.columns) - classified
+    assert not unclassified, f"unclassified raw columns: {sorted(unclassified)}"
