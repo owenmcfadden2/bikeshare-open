@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 
 from src.config import FORBIDDEN, TARGET
-from src.features import build_features, feature_columns
+from src.features import build_features, encode_weather, feature_columns
 from src.ingest import load_raw
 
 
@@ -77,3 +77,11 @@ def test_cnt_lag_7_on_named_date(feats):
     silently becoming a different lag if a shared constant changes."""
     row = feats.set_index("dteday").loc["2012-03-15"]
     assert row.cnt_lag_7 == 5382
+
+
+def test_weather_encoder_rejects_unknown_labels():
+    """A silent .map() turns an unseen label into NaN, and dropna() then
+    deletes the row. Every label in the current data is known, so no
+    data-driven test can see this; feed the encoder a label directly."""
+    with pytest.raises(ValueError, match="unmapped weather labels"):
+        encode_weather(pd.Series(["GOOD", "SNOW"]))

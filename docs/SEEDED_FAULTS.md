@@ -156,3 +156,59 @@ make: *** [Makefile:16: test] Error 1
 
 ### Turns to fix
 1 (my messages to a /clear-ed session, given only "make test is failing"). Measured on a re-seed: my first fix attempt ran in the same session as the seeding, so I reverted, re-applied the identical one-line change with sed, cleared, and counted again. The agent diagnosed correctly from the test output, but its fix added a comment claiming the window covers t-1 through t-6 (it covers t-1 through t-7); I discarded the comment and kept the original line.
+
+## Fault 3: weather encoder `raise` removed
+
+Seeded by the agent via /seed-fault (Edit tool). The agent then tried to re-invoke the skill from inside itself (looking for hook output that did not exist); I stopped it and assembled this section by hand.
+
+### Change
+```diff
+diff --git a/src/features.py b/src/features.py
+index 88cdf17..93e1cf9 100644
+--- a/src/features.py
++++ b/src/features.py
+@@ -26,8 +26,6 @@ def encode_weather(series: pd.Series) -> pd.Series:
+     """
+     known = series.dropna()
+     unknown = set(known.unique()) - set(WEATHER_ORDER)
+-    if unknown:
+-        raise ValueError(f"unmapped weather labels: {sorted(unknown)}")
+     return series.map(WEATHER_ORDER).astype(float)
+ 
+ 
+```
+
+### Hook stderr
+None. The hook ran after the edit, but tests/test_leakage.py passed, so it exited 0 and printed nothing.
+
+### make test output (fault in place, starter suite)
+```
+python -m pytest tests/ -q
+................                                                         [100%]
+16 passed in 1.20s
+```
+
+**Finding: the starter suite cannot see this fault.** Every weather label in the data (GOOD, MISTY, BAD) is in WEATHER_ORDER, so .map() produces no NaNs and the row-loss bound is never approached. The code can now fail silently, but nothing on this data makes it fail. I added test_weather_encoder_rejects_unknown_labels, which feeds the encoder an unseen label directly.
+
+### New test, run with the fault still in place
+```
+.........F                                                               [100%]
+=================================== FAILURES ===================================
+_________________ test_weather_encoder_rejects_unknown_labels __________________
+
+    def test_weather_encoder_rejects_unknown_labels():
+        """A silent .map() turns an unseen label into NaN, and dropna() then
+        deletes the row. Every label in the current data is known, so no
+        data-driven test can see this; feed the encoder a label directly."""
+>       with pytest.raises(ValueError, match="unmapped weather labels"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests/test_leakage.py:86: Failed
+=========================== short test summary info ============================
+FAILED tests/test_leakage.py::test_weather_encoder_rejects_unknown_labels - F...
+1 failed, 9 passed in 0.40s
+```
+
+### Turns to fix
+2 (my messages to a /clear-ed session, given only "make test is failing"). Turn 1: correct diagnosis, no edit. Turn 2: "apply it now". Its fix dropped sorted() from the error message, which still passes the test (it matches only the prefix) but makes the message order nondeterministic for multiple unknown labels; I restored the original line. This fault was only fixable once my new test existed: under the starter suite there was nothing failing to fix.
