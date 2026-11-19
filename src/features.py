@@ -72,8 +72,11 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     # without it, cnt_roll_7 would contain today's count. -----------------
     # If you add a longer lag, raise LAG_WARMUP in src/config.py.
     out["cnt_lag_1"] = out[TARGET].shift(1)
-    out["cnt_lag_7"] = out[TARGET].shift(LAG_WARMUP)
-    out["cnt_roll_7"] = out[TARGET].shift(1).rolling(LAG_WARMUP).mean()
+    out["cnt_lag_7"] = out[TARGET].shift(7)
+    out["cnt_roll_7"] = out[TARGET].shift(1).rolling(7).mean()
+
+    # 14-day calendar lag: total rides exactly 14 days prior to date d.
+    out["cnt_lag_14"] = out[TARGET].shift(14)
 
     return out.dropna().reset_index(drop=True)
 
