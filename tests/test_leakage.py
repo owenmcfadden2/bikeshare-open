@@ -64,3 +64,10 @@ def test_no_missing_values(feats):
 def test_dates_are_sorted_and_unique(feats):
     assert feats.dteday.is_monotonic_increasing
     assert feats.dteday.is_unique
+
+
+def test_cnt_lag_14_on_named_date(feats):
+    """cnt_lag_14 on 2012-03-15 equals cnt on 2012-03-01 (4990,
+    read from data/raw/bike_daily.csv)."""
+    row = feats.set_index("dteday").loc["2012-03-15"]
+    assert row.cnt_lag_14 == 4990
