@@ -51,8 +51,9 @@ Ridge should not be deployed over persistence in its current form. On the test s
 - The edits that seeded faults 1-3 (via `/seed-fault`), and the fixes for faults 1-3. I discarded an off-by-one comment from the fault 2 fix and reverted a dropped `sorted()` in the fault 3 fix.
 - The first version of the fault 1 section of `docs/SEEDED_FAULTS.md` (its hook stderr was summarized; I replaced it with the full output).
 - `reports/audit.jsonl` (`agent/audit.py` on my repo: 35 minutes, about 33 model requests, no findings).
+- The Exercise 3 review of my teammate's repo (`leakage-auditor` subagent, 20 minutes; output verbatim in `docs/AUDIT.md`).
 
-**Written by me (with tutor drafts I reviewed, edited and ran):** the five tests I added (`test_cnt_lag_14_on_named_date`, `test_cnt_lag_7_on_named_date`, `test_weather_encoder_rejects_unknown_labels`, `test_raw_data_is_unmodified`, `test_every_raw_column_is_classified`), with expected values looked up in the CSV by me; `RAW_SHA256` and the raw-column classes in `src/config.py`; the `--target-ratio` flag in `src/train.py`; the `/seed-fault` skill and its two revisions; the `CLAUDE.md` changes; fault sections 2-4 of `docs/SEEDED_FAULTS.md`; `docs/DECISIONS.md`; this report.
+**Written by me (with tutor drafts I reviewed, edited and ran):** the five tests I added (`test_cnt_lag_14_on_named_date`, `test_cnt_lag_7_on_named_date`, `test_weather_encoder_rejects_unknown_labels`, `test_raw_data_is_unmodified`, `test_every_raw_column_is_classified`), with expected values looked up in the CSV by me; `RAW_SHA256` and the raw-column classes in `src/config.py`; the `--target-ratio` flag in `src/train.py`; the `/seed-fault` skill and its two revisions; the `CLAUDE.md` changes; fault sections 2-4 of `docs/SEEDED_FAULTS.md`; the verdict and verified findings in `docs/AUDIT.md`; `docs/DECISIONS.md`; this report.
 
 **Decisions that were mine** (each has a dated line in `docs/DECISIONS.md`):
 - What to predict, what counts as leakage, how to split, which baselines: I adopted the starter's choices and verified the leakage identity and the leaky $R^2$ = 1.000 myself.
@@ -66,6 +67,7 @@ Ridge should not be deployed over persistence in its current form. On the test s
 - Treating the auditor's "no findings, high confidence" as a screen, not as evidence: the evidence is the tests I watched fail.
 - Whether the answer is believable: the qualitative result is (leakage, the extrapolation failure and its fix all have direct evidence), but ridge's margin over persistence is small and partly an artefact of bias, so I do not present it as a strong win.
 - The `CLAUDE.md` changes and the two tightenings of `/seed-fault`.
+- My verdict on the teammate audit: checking each auditor claim against their code (one false positive, one misdiagnosis) and the five number-changing findings I verified that it missed.
 
 ### Working with a 9B model
 
@@ -73,5 +75,5 @@ Ridge should not be deployed over persistence in its current form. On the test s
 - It wrote tests that would fail for the wrong reason (a missing fixture argument, `.date` instead of `.dt.date`).
 - When raising `LAG_WARMUP` broke `cnt_roll_7`, the hook fired correctly, but the agent flipped the constant between 7 and 14 without diagnosing the cause, then hung for over eight minutes.
 - It summarized output it was told to paste verbatim, marked a seeded fault with a `# FAULT` comment, rationalized past a skill precondition, and wrote explanations that were wrong while its code was right.
-- Ollama returned intermittent HTTP 500 errors, after which Claude Code backed off for minutes before retrying. Claude Code also does not recognize `bikeshare-coder` and assumes a 1M-token context, so it does not compact before the real 64k limit; I used `/clear` between tasks to compensate.
+- Requests the model took too long to answer were closed by Claude Code after about 5m50s; Ollama logged them as HTTP 500 ("aborting completion request due to client closing the connection"), and Claude Code then backed off before retrying. I first attributed these to malformed tool calls and corrected that from the Ollama logs. Claude Code also does not recognize `bikeshare-coder` and assumes a 1M-token context, so it does not compact before the real 64k limit; I used `/clear` between tasks to compensate.
 - Setup: `make model` failed with my Ollama version (piping the Modelfile to `ollama create -f -`), so I ran the create step manually with a temporary Modelfile.
